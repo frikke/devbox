@@ -1,26 +1,27 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package nix
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
-
 	"go.jetpack.io/devbox/internal/fileutil"
 	"go.jetpack.io/devbox/internal/xdg"
 )
 
-// ensureNixpkgsPrefetched runs the prefetch step to download the flake of the registry
-func ensureNixpkgsPrefetched(w io.Writer, commit string) error {
+// EnsureNixpkgsPrefetched runs the prefetch step to download the flake of the registry
+func EnsureNixpkgsPrefetched(w io.Writer, commit string) error {
 	// Look up the cached map of commitHash:nixStoreLocation
 	commitToLocation, err := nixpkgsCommitFileContents()
 	if err != nil {
@@ -37,17 +38,16 @@ func ensureNixpkgsPrefetched(w io.Writer, commit string) error {
 	}
 
 	fmt.Fprintf(w, "Ensuring nixpkgs registry is downloaded.\n")
-	cmd := exec.Command(
-		"nix", "flake", "prefetch",
+	cmd := Command(
+		"flake", "prefetch",
 		FlakeNixpkgs(commit),
 	)
-	cmd.Args = append(cmd.Args, ExperimentalFlags()...)
 	cmd.Stdout = w
 	cmd.Stderr = cmd.Stdout
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Run(context.TODO()); err != nil {
 		fmt.Fprintf(w, "Ensuring nixpkgs registry is downloaded: ")
 		color.New(color.FgRed).Fprintf(w, "Fail\n")
-		return errors.Wrapf(err, "Command: %s", cmd)
+		return err
 	}
 	fmt.Fprintf(w, "Ensuring nixpkgs registry is downloaded: ")
 	color.New(color.FgGreen).Fprintf(w, "Success\n")
@@ -72,11 +72,10 @@ func nixpkgsCommitFileContents() (map[string]string, error) {
 
 func saveToNixpkgsCommitFile(commit string, commitToLocation map[string]string) error {
 	// Make a query to get the /nix/store path for this commit hash.
-	cmd := exec.Command("nix", "flake", "prefetch", "--json",
+	cmd := Command("flake", "prefetch", "--json",
 		FlakeNixpkgs(commit),
 	)
-	cmd.Args = append(cmd.Args, ExperimentalFlags()...)
-	out, err := cmd.Output()
+	out, err := cmd.Output(context.TODO())
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -91,7 +90,7 @@ func saveToNixpkgsCommitFile(commit string, commitToLocation map[string]string) 
 
 	// Ensure the nixpkgs commit file path exists so we can write an update to it
 	path := nixpkgsCommitFilePath()
-	err = os.MkdirAll(filepath.Dir(path), 0755)
+	err = os.MkdirAll(filepath.Dir(path), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return errors.WithStack(err)
 	}
@@ -103,10 +102,32 @@ func saveToNixpkgsCommitFile(commit string, commitToLocation map[string]string) 
 		return errors.WithStack(err)
 	}
 
-	return errors.WithStack(os.WriteFile(path, serialized, 0644))
+	return errors.WithStack(os.WriteFile(path, serialized, 0o644))
 }
 
 func nixpkgsCommitFilePath() string {
 	cacheDir := xdg.CacheSubpath("devbox")
 	return filepath.Join(cacheDir, "nixpkgs.json")
+}
+
+// IsGithubNixpkgsURL returns true if the package is a flake of the form:
+// github:NixOS/nixpkgs/...
+//
+// While there are many ways to specify this input, devbox always uses
+// github:NixOS/nixpkgs/<hash> as the URL. If the user wishes to reference nixpkgs
+// themselves, this function may not return true.
+func IsGithubNixpkgsURL(url string) bool {
+	return strings.HasPrefix(strings.ToLower(url), "github:nixos/nixpkgs/")
+}
+
+var hashFromNixPkgsRegex = regexp.MustCompile(`(?i)github:nixos/nixpkgs/([^#]+).*`)
+
+// HashFromNixPkgsURL will (for example) return 5233fd2ba76a3accb5aaa999c00509a11fd0793c
+// from github:nixos/nixpkgs/5233fd2ba76a3accb5aaa999c00509a11fd0793c#hello
+func HashFromNixPkgsURL(url string) string {
+	matches := hashFromNixPkgsRegex.FindStringSubmatch(url)
+	if len(matches) == 2 {
+		return matches[1]
+	}
+	return ""
 }

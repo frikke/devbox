@@ -1,14 +1,11 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package envir
 
 const (
-	DevboxCache         = "DEVBOX_CACHE"
-	devboxCLICloudShell = "DEVBOX_CLI_CLOUD_SHELL"
-	DevboxDebug         = "DEVBOX_DEBUG"
-	DevboxFeaturePrefix = "DEVBOX_FEATURE_"
-	DevboxGateway       = "DEVBOX_GATEWAY"
+	DevboxCache   = "DEVBOX_CACHE"
+	DevboxGateway = "DEVBOX_GATEWAY"
 	// DevboxLatestVersion is the latest version available of the devbox CLI binary.
 	// NOTE: it should NOT start with v (like 0.4.8)
 	DevboxLatestVersion  = "DEVBOX_LATEST_VERSION"
@@ -21,7 +18,8 @@ const (
 	LauncherVersion = "LAUNCHER_VERSION"
 	LauncherPath    = "LAUNCHER_PATH"
 
-	SSHTTY = "SSH_TTY"
+	GitHubUsername = "GITHUB_USER_NAME"
+	SSHTTY         = "SSH_TTY"
 
 	XDGDataHome   = "XDG_DATA_HOME"
 	XDGConfigHome = "XDG_CONFIG_HOME"

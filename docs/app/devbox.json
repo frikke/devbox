@@ -1,12 +1,18 @@
 {
   "packages": [
-    "yarn",
-    "nodejs"
+    "nodejs@20.12.2",
   ],
-  "shell": {
-    "init_hook": null
+  "env": {
+    "DEVBOX_COREPACK_ENABLED": "true",
   },
-  "nixpkgs": {
-    "commit": "f80ac848e3d6f0c12c52758c0f25c10c97ca3b62"
-  }
+  "shell": {
+    "init_hook": [
+      "test \"$SKIP_INIT_HOOK\" = \"1\" || pnpm install",
+    ],
+    "scripts": {
+      "build": "pnpm run build",
+      "start": "pnpm run start",
+      "serve": "pnpm run serve",
+    },
+  },
 }

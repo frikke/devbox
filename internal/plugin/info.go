@@ -1,9 +1,10 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package plugin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,50 +12,55 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-
-	"go.jetpack.io/devbox/internal/nix"
+	"go.jetpack.io/devbox/internal/devpkg"
+	"go.jetpack.io/devbox/internal/services"
 )
 
-func PrintReadme(ctx context.Context,
-	pkg *nix.Input,
+func Readme(ctx context.Context,
+	pkg *devpkg.Package,
 	projectDir string,
-	w io.Writer,
 	markdown bool,
-) error {
-	defer trace.StartRegion(ctx, "PrintReadme").End()
+) (string, error) {
+	defer trace.StartRegion(ctx, "Readme").End()
 
 	cfg, err := getConfigIfAny(pkg, projectDir)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if cfg == nil {
-		return nil
+		return "", nil
 	}
 
-	_, _ = fmt.Fprintln(w, "")
+	buf := bytes.NewBuffer(nil)
 
-	if err = printReadme(cfg, w, markdown); err != nil {
-		return err
+	_, _ = fmt.Fprintln(buf, "")
+
+	if err = printReadme(cfg, buf, markdown); err != nil {
+		return "", err
 	}
 
-	if err = printServices(cfg, w, markdown); err != nil {
-		return err
+	if err = printServices(cfg, pkg, buf, markdown); err != nil {
+		return "", err
 	}
 
-	if err = printCreateFiles(cfg, w, markdown); err != nil {
-		return err
+	if err = printCreateFiles(cfg, buf, markdown); err != nil {
+		return "", err
 	}
 
-	if err = printEnv(cfg, w, markdown); err != nil {
-		return err
+	if err = printEnv(cfg, buf, markdown); err != nil {
+		return "", err
 	}
 
-	return printInfoInstructions(pkg.CanonicalName(), w)
+	if err = printInfoInstructions(pkg.CanonicalName(), buf); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
 
-func printReadme(cfg *config, w io.Writer, markdown bool) error {
-	if cfg.Readme == "" {
+func printReadme(cfg *Config, w io.Writer, markdown bool) error {
+	if cfg.Description() == "" {
 		return nil
 	}
 	_, err := fmt.Fprintf(
@@ -62,22 +68,30 @@ func printReadme(cfg *config, w io.Writer, markdown bool) error {
 		"%s%s NOTES:\n%s\n\n",
 		lo.Ternary(markdown, "### ", ""),
 		cfg.Name,
-		cfg.Readme,
+		cfg.Description(),
 	)
 	return errors.WithStack(err)
 }
 
-func printServices(cfg *config, w io.Writer, markdown bool) error {
-	svcs, err := cfg.Services()
+func printServices(cfg *Config, pkg *devpkg.Package, w io.Writer, markdown bool) error {
+	_, contentPath := cfg.ProcessComposeYaml()
+	if contentPath == "" {
+		return nil
+	}
+	content, err := pkg.FileContent(contentPath)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if len(svcs) == 0 {
+	serviceNames, err := services.NamesFromProcessCompose(content)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if len(serviceNames) == 0 {
 		return nil
 	}
 	services := ""
-	for _, service := range svcs {
-		services += fmt.Sprintf("* %[1]s\n", service.Name)
+	for _, serviceName := range serviceNames {
+		services += fmt.Sprintf("* %[1]s\n", serviceName)
 	}
 
 	_, err = fmt.Fprintf(
@@ -89,7 +103,7 @@ func printServices(cfg *config, w io.Writer, markdown bool) error {
 	return errors.WithStack(err)
 }
 
-func printCreateFiles(cfg *config, w io.Writer, markdown bool) error {
+func printCreateFiles(cfg *Config, w io.Writer, markdown bool) error {
 	if len(cfg.CreateFiles) == 0 {
 		return nil
 	}
@@ -110,7 +124,7 @@ func printCreateFiles(cfg *config, w io.Writer, markdown bool) error {
 	return errors.WithStack(err)
 }
 
-func printEnv(cfg *config, w io.Writer, markdown bool) error {
+func printEnv(cfg *Config, w io.Writer, markdown bool) error {
 	if len(cfg.Env) == 0 {
 		return nil
 	}

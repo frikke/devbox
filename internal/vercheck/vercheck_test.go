@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package vercheck
@@ -13,7 +13,6 @@ import (
 )
 
 func TestCheckVersion(t *testing.T) {
-
 	isDevBuild = false
 
 	t.Run("skip_if_devbox_cloud", func(t *testing.T) {
@@ -110,7 +109,6 @@ func TestCheckVersion(t *testing.T) {
 		for _, cmdPath := range commandSkipList {
 			cmdPathUnderscored := strings.ReplaceAll(cmdPath, " ", "_")
 			t.Run("skip_if_cmd_path_is_"+cmdPathUnderscored, func(t *testing.T) {
-
 				// set older launcher version
 				t.Setenv(envir.LauncherVersion, "v0.1.0")
 
@@ -122,5 +120,4 @@ func TestCheckVersion(t *testing.T) {
 			})
 		}
 	})
-
 }

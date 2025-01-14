@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package boxcli
@@ -9,16 +9,23 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"go.jetpack.io/devbox"
 	"go.jetpack.io/devbox/internal/boxcli/usererr"
-	"go.jetpack.io/devbox/internal/impl/devopt"
+	"go.jetpack.io/devbox/internal/devbox"
+	"go.jetpack.io/devbox/internal/devbox/devopt"
 	"go.jetpack.io/devbox/internal/nix"
 )
 
 const toSearchForPackages = "To search for packages, use the `devbox search` command"
 
 type addCmdFlags struct {
-	config configFlags
+	config           configFlags
+	allowInsecure    []string
+	disablePlugin    bool
+	platforms        []string
+	excludePlatforms []string
+	patchGlibc       bool
+	patch            string
+	outputs          []string
 }
 
 func addCmd() *cobra.Command {
@@ -40,24 +47,62 @@ func addCmd() *cobra.Command {
 			}
 			err := addCmdFunc(cmd, args, flags)
 			if errors.Is(err, nix.ErrPackageNotFound) {
-				return usererr.New("%s\n\n%s", err, toSearchForPackages)
+				return usererr.WithUserMessage(err, toSearchForPackages)
 			}
 			return err
 		},
 	}
 
 	flags.config.register(command)
+	command.Flags().StringSliceVar(
+		&flags.allowInsecure, "allow-insecure", []string{},
+		"allow adding packages marked as insecure.")
+	command.Flags().BoolVar(
+		&flags.disablePlugin, "disable-plugin", false,
+		"disable plugin (if any) for this package.")
+	command.Flags().StringSliceVarP(
+		&flags.platforms, "platform", "p", []string{},
+		"add packages to run on only this platform.")
+	command.Flags().StringSliceVarP(
+		&flags.excludePlatforms, "exclude-platform", "e", []string{},
+		"exclude packages from a specific platform.")
+	command.Flags().BoolVar(
+		&flags.patchGlibc, "patch-glibc", false,
+		"patch any ELF binaries to use the latest glibc version in nixpkgs")
+	command.Flags().StringVar(
+		&flags.patch, "patch", "auto",
+		"allow Devbox to patch the package to fix known issues (auto, always, never)")
+	command.Flags().StringSliceVarP(
+		&flags.outputs, "outputs", "o", []string{},
+		"specify the outputs to select for the nix package")
+
+	_ = command.Flags().MarkDeprecated("patch-glibc", `use --patch=always instead`)
+	command.MarkFlagsMutuallyExclusive("patch", "patch-glibc")
+
 	return command
 }
 
 func addCmdFunc(cmd *cobra.Command, args []string, flags addCmdFlags) error {
 	box, err := devbox.Open(&devopt.Opts{
-		Dir:    flags.config.path,
-		Writer: cmd.ErrOrStderr(),
+		Dir:         flags.config.path,
+		Environment: flags.config.environment,
+		Stderr:      cmd.ErrOrStderr(),
 	})
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	return box.Add(cmd.Context(), args...)
+	opts := devopt.AddOpts{
+		AllowInsecure:    flags.allowInsecure,
+		DisablePlugin:    flags.disablePlugin,
+		Platforms:        flags.platforms,
+		ExcludePlatforms: flags.excludePlatforms,
+		Patch:            flags.patch,
+		Outputs:          flags.outputs,
+	}
+	if flags.patchGlibc {
+		// Backwards compatibility so --patch-glibc still works.
+		opts.Patch = "always"
+	}
+	return box.Add(cmd.Context(), args, opts)
 }

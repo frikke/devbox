@@ -1,7 +1,7 @@
 {
-  "packages": [
-    "postgresql@latest"
-  ],
+  "packages": {
+    "postgresql": "latest"
+  },
   "shell": {
     "init_hook": null
   }

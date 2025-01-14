@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package vercheck
@@ -28,7 +28,7 @@ import (
 
 // Keep this in-sync with latest version in launch.sh.
 // If this version is newer than the version in launch.sh, we'll print a notice.
-const expectedLauncherVersion = "v0.2.0"
+const expectedLauncherVersion = "v0.2.2"
 
 // envName determines whether the version check has already occurred.
 // We set this env-var so that this devbox command invoking other devbox commands
@@ -47,6 +47,8 @@ var isDevBuild = build.IsDev
 var commandSkipList = []string{
 	"devbox global shellenv",
 	"devbox shellenv",
+	"devbox version update",
+	"devbox log",
 }
 
 // CheckVersion checks the launcher and binary versions and prints a notice if
@@ -67,7 +69,11 @@ func CheckVersion(w io.Writer, commandPath string) {
 		return
 	}
 
-	if lo.Contains(commandSkipList, commandPath) {
+	hasSkipPrefix := lo.ContainsBy(
+		commandSkipList,
+		func(skipPath string) bool { return strings.HasPrefix(commandPath, skipPath) },
+	)
+	if hasSkipPrefix {
 		return
 	}
 
@@ -166,10 +172,9 @@ type updatedVersions struct {
 // version is available. It parses the output to get the new launcher and
 // devbox versions.
 func triggerUpdate(stdErr io.Writer) (*updatedVersions, error) {
-
 	exePath := os.Getenv(envir.LauncherPath)
 	if exePath == "" {
-		ux.Fwarning(stdErr, "expected LAUNCHER_PATH to be set. Defaulting to \"devbox\".")
+		ux.Fwarningf(stdErr, "expected LAUNCHER_PATH to be set. Defaulting to \"devbox\".")
 		exePath = "devbox"
 	}
 
@@ -199,7 +204,7 @@ func triggerUpdate(stdErr io.Writer) (*updatedVersions, error) {
 
 func printSuccessMessage(w io.Writer, toolName, oldVersion, newVersion string) {
 	var msg string
-	if semverCompare(oldVersion, newVersion) == 0 {
+	if SemverCompare(oldVersion, newVersion) == 0 {
 		msg = fmt.Sprintf("already at %s version %s", toolName, newVersion)
 	} else {
 		msg = fmt.Sprintf("updated to %s version %s", toolName, newVersion)
@@ -240,7 +245,7 @@ func isNewLauncherAvailable() bool {
 	if launcherVersion == "" {
 		return false
 	}
-	return semverCompare(launcherVersion, expectedLauncherVersion) < 0
+	return SemverCompare(launcherVersion, expectedLauncherVersion) < 0
 }
 
 // isNewDevboxAvailable returns true if a new devbox CLI binary version is available.
@@ -249,10 +254,10 @@ func isNewDevboxAvailable() bool {
 	if latest == "" {
 		return false
 	}
-	return semverCompare(currentDevboxVersion, latest) < 0
+	return SemverCompare(currentDevboxVersion, latest) < 0
 }
 
-// currentLauncherAvailable returns launcher's version if it is
+// currentLauncherVersion returns launcher's version if it is
 // available, or empty string if it is not.
 func currentLauncherVersion() string {
 	launcherVersion := os.Getenv(envir.LauncherVersion)
@@ -280,7 +285,7 @@ func removeCurrentVersionFile() error {
 	return nil
 }
 
-func semverCompare(ver1, ver2 string) int {
+func SemverCompare(ver1, ver2 string) int {
 	if !strings.HasPrefix(ver1, "v") {
 		ver1 = "v" + ver1
 	}

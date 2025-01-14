@@ -1,21 +1,20 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package lock
 
+import "go.jetpack.io/devbox/nix/flake"
+
 type devboxProject interface {
 	ConfigHash() (string, error)
-	NixPkgsCommitHash() string
-	Packages() []string
+	Stdenv() flake.Ref
+	AllPackageNamesIncludingRemovedTriggerPackages() []string
 	ProjectDir() string
-}
-
-type resolver interface {
-	Resolve(pkg string) (*Package, error)
 }
 
 type Locker interface {
-	resolver
-	LegacyNixpkgsPath(string) string
+	Get(string) *Package
+	Stdenv() flake.Ref
 	ProjectDir() string
+	Resolve(string) (*Package, error)
 }

@@ -1,11 +1,11 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package midcobra
 
 import (
 	"errors"
-	"os"
+	"log/slog"
 	"os/exec"
 	"strconv"
 
@@ -15,7 +15,6 @@ import (
 
 	"go.jetpack.io/devbox/internal/boxcli/usererr"
 	"go.jetpack.io/devbox/internal/debug"
-	"go.jetpack.io/devbox/internal/envir"
 	"go.jetpack.io/devbox/internal/telemetry"
 	"go.jetpack.io/devbox/internal/ux"
 )
@@ -41,14 +40,11 @@ func (d *DebugMiddleware) preRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	strVal := ""
 	if d.flag.Changed {
-		strVal = d.flag.Value.String()
-	} else {
-		strVal = os.Getenv(envir.DevboxDebug)
-	}
-	if enabled, _ := strconv.ParseBool(strVal); enabled {
-		debug.Enable()
+		strVal := d.flag.Value.String()
+		if enabled, _ := strconv.ParseBool(strVal); enabled {
+			debug.Enable()
+		}
 	}
 }
 
@@ -56,12 +52,12 @@ func (d *DebugMiddleware) postRun(cmd *cobra.Command, args []string, runErr erro
 	if runErr == nil {
 		return
 	}
-	if usererr.HasUserMessage(runErr) {
-		if usererr.IsWarning(runErr) {
+	if userErr, hasUserErr := usererr.Extract(runErr); hasUserErr {
+		if usererr.IsWarning(userErr) {
 			ux.Fwarning(cmd.ErrOrStderr(), runErr.Error())
 			return
 		}
-		color.New(color.FgRed).Fprintf(cmd.ErrOrStderr(), "\nError: %s\n\n", runErr.Error())
+		color.New(color.FgRed).Fprintf(cmd.ErrOrStderr(), "\nError: %s\n\n", userErr.Error())
 	} else {
 		color.New(color.FgRed).Fprintf(cmd.ErrOrStderr(), "Error: %v\n\n", runErr)
 	}
@@ -69,7 +65,7 @@ func (d *DebugMiddleware) postRun(cmd *cobra.Command, args []string, runErr erro
 	st := debug.EarliestStackTrace(runErr)
 	var exitErr *exec.ExitError
 	if errors.As(runErr, &exitErr) {
-		debug.Log("Command stderr: %s\n", exitErr.Stderr)
+		slog.Error("command error", "stderr", exitErr.Stderr, "execid", telemetry.ExecutionID, "stack", st)
 	}
-	debug.Log("\nExecutionID:%s\n%+v\n", telemetry.ExecutionID, st)
+	slog.Error("command error", "execid", telemetry.ExecutionID, "stack", st)
 }

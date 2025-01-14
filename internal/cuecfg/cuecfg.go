@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package cuecfg
@@ -8,18 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"cuelang.org/go/cuego"
 	"github.com/pkg/errors"
 )
 
 // TODO: add support for .cue
 
 func Marshal(valuePtr any, extension string) ([]byte, error) {
-	err := cuego.Complete(valuePtr)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
 	switch extension {
 	case ".json", ".lock":
 		return MarshalJSON(valuePtr)
@@ -68,7 +62,7 @@ func ParseFile(path string, valuePtr any) error {
 
 // ParseFileWithExtension lets the caller override the extension of the `path` filename
 // For example, project.csproj files should be treated as having extension .xml
-func ParseFileWithExtension(path string, ext string, valuePtr any) error {
+func ParseFileWithExtension(path, ext string, valuePtr any) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return errors.WithStack(err)
@@ -82,8 +76,8 @@ func WriteFile(path string, value any) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-
-	return errors.WithStack(os.WriteFile(path, data, 0644))
+	data = append(data, '\n')
+	return errors.WithStack(os.WriteFile(path, data, 0o644))
 }
 
 func IsSupportedExtension(ext string) bool {

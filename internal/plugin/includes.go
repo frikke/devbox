@@ -3,16 +3,23 @@ package plugin
 import (
 	"strings"
 
-	"go.jetpack.io/devbox/internal/boxcli/usererr"
-	"go.jetpack.io/devbox/internal/nix"
+	"go.jetpack.io/devbox/internal/devpkg"
+	"go.jetpack.io/devbox/internal/lock"
 )
 
-func (m *Manager) parseInclude(include string) (*nix.Input, error) {
-	includeType, name, _ := strings.Cut(include, ":")
-	if includeType != "plugin" {
-		return nil, usererr.New("unknown include type %q", includeType)
-	} else if name == "" {
-		return nil, usererr.New("include name is required")
+func LoadConfigFromInclude(include string, lockfile *lock.File, workingDir string) (*Config, error) {
+	var includable Includable
+	var err error
+	if t, name, _ := strings.Cut(include, ":"); t == "plugin" {
+		includable = devpkg.PackageFromStringWithDefaults(
+			name,
+			lockfile,
+		)
+	} else {
+		includable, err = parseIncludable(include, workingDir)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return nix.InputFromString(name, m.lockfile), nil
+	return getConfigIfAny(includable, lockfile.ProjectDir())
 }

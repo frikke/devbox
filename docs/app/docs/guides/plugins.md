@@ -1,38 +1,63 @@
 ---
-title: Using Devbox Plugins
+title: Using Plugins
 ---
 
 This doc describes how to use Devbox Plugins with your project. **Plugins** provide a default Devbox configuration for a Nix package. Plugins make it easier to get started with packages that require additional setup when installed with Nix, and they offer a familiar interface for configuring packages. They also help keep all of your project's configuration within your project directory, which helps maintain portability and isolation.
 
-If a plugin is available for your package, it will activate when you install the plugin using `devbox add <package name>`.
-
-## Current Plugins
-Plugins are available for the following packages. You can activate the plugins for these packages by running `devbox add <package_name>`:
-* [Apache](../devbox_examples/servers/apache.md) (apacheHttpd)
-* [Caddy](../devbox_examples/servers/caddy.md) (caddy)
-* [Nginx](../devbox_examples/servers/nginx.md) (nginx)
-* [MariaDB](../devbox_examples/databases/mariadb.md) (mariadb, mariadb_10_6...)
-* [PostgreSQL](../devbox_examples/databases/postgres.md) (postgresql)
-* [Redis](../devbox_examples/databases/redis.md) (redis)
-* [PHP](../devbox_examples/languages/php.md) (php, php80, php81, php82...)
-* [Pip](../devbox_examples/languages/python.md) (python39Packages.pip, python310Packages.pip, python311Packages.pip...)
-* [Ruby](../devbox_examples/languages/ruby.md)(ruby, ruby_3_1, ruby_3_0...)
-
-Our team is rapidly adding new plugins to Devbox. If you want to request a plugin, please file an issue in the Devbox Repo.
-
 ## Using Plugins
 
-If you add one of the packages listed above to your project using `devbox add <pkg>`, Devbox will automatically activate the plugin for that package.
+### Built-in Plugins
 
-You can also explicitly add a plugin in your project by adding it to the [`includes` section](../configuration.md#includes) of your `devbox.json` file. For example, to explicitly add the plugin for Nginx, you can add the following to your `devbox.json` file:
+If you add one of the packages listed below to your project using `devbox add <pkg>`, Devbox will automatically activate the plugin for that package.
+
+You can also explicitly add a built-in plugin in your project by adding it to the [`include` section](../configuration.md#include) of your `devbox.json` file. For example, to explicitly add the plugin for Nginx, you can add the following to your `devbox.json` file:
 
 ```json
 {
-  "includes": [
+  "include": [
     "plugin:nginx"
   ]
 }
 ```
+
+Built-in plugins are available for the following packages. You can activate the plugins for these packages by running `devbox add <package_name>`
+
+* [Apache](../devbox_examples/servers/apache.md) (apacheHttpd)
+* [Caddy](../devbox_examples/servers/caddy.md) (caddy)
+* [Nginx](../devbox_examples/servers/nginx.md) (nginx)
+* [Node.js](../devbox_examples/languages/nodejs.md) (nodejs, nodejs-slim)
+* [MariaDB](../devbox_examples/databases/mariadb.md) (mariadb, mariadb_10_6...)
+* [MySQL](../devbox_examples/databases/mysql.md) (mysql80, mysql57)
+* [PostgreSQL](../devbox_examples/databases/postgres.md) (postgresql)
+* [Redis](../devbox_examples/databases/redis.md) (redis)
+* [Valkey](../devbox_examples/databases/valkey.md) (valkey)
+* [PHP](../devbox_examples/languages/php.md) (php, php80, php81, php82...)
+* [Python](../devbox_examples/languages/python.md) (python, python-full, python-minimal...)
+* [Ruby](../devbox_examples/languages/ruby.md)(ruby, ruby_3_1, ruby_3_0...)
+* [Elixir](../devbox_examples/languages/elixir.md)(elixir, elixir_1_16, elixir_1_15...)
+
+
+### Local Plugins
+
+You can also [define your own plugins](./creating_plugins.md) and use them in your project. To use a local plugin, add the following to the `include` section of your devbox.json:
+
+```json
+  "include": [
+    "path:./path/to/plugin.json"
+  ]
+```
+
+### Github Hosted Plugins
+
+Sometimes, you may want to share a plugin across multiple projects or users. In this case, you provide a Github reference to a plugin hosted on Github. To install a github hosted plugin, add the following to the include section of your devbox.json
+
+```json
+  "include": [
+    "github:<org>/<repo>?dir=<plugin-dir>"
+  ]
+```
+
+Note that Devbox will cache Github plugins for 24 hours. This is to aid performance of `devbox shell` and similar commands, and avoids downloading the plugin from Github each time. In extenuating circumstances, you can bypass this cache by setting `export DEVBOX_X_GITHUB_PLUGIN_CACHE_TTL=<time>` , where time is a valid input to `time.ParseDuration` (see [doc](https://pkg.go.dev/time#ParseDuration)) such as "120s" or "2m".
 
 ## An Example of a Plugin: Nginx
 Let's take a look at the plugin for Nginx. To get started, let's initialize a new devbox project, and add the `nginx` package:
@@ -122,7 +147,6 @@ Service "nginx" started
 When Devbox detects a plugin for an installed package, it automatically applies its configuration and prints a short explanation. Developers can review this explanation anytime using `devbox info <package_name>`.
 
 ### Services
-
 If your package can run as a daemon or background service, Devbox can configure and manage that service for you with `devbox services`.
 
 To learn more, visit our page on [Devbox Services](services.md).
@@ -141,5 +165,4 @@ Developers should directly edit helper files and check them into source control 
 
 ## Plugins Source Code
 
-Devbox Plugins are written in JSON and stored in the main Devbox Repo. You can view the source code of the current plugins [here](https://github.com/jetpack-io/devbox/tree/main/plugins)
-
+Devbox Plugins are written in JSON and stored in the main Devbox Repo. You can view the source code of the current plugins [here](https://github.com/jetify-com/devbox/tree/main/plugins)

@@ -1,15 +1,18 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package featureflag
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
+	"testing"
 
-	"go.jetpack.io/devbox/internal/debug"
-	"go.jetpack.io/devbox/internal/envir"
+	"go.jetpack.io/devbox/internal/build"
 )
+
+const envNamePrefix = "DEVBOX_FEATURE_"
 
 type feature struct {
 	name    string
@@ -18,7 +21,10 @@ type feature struct {
 
 var features = map[string]*feature{}
 
-func disabled(name string) *feature {
+// Prevent lint complaining about unused function
+//
+//nolint:unparam
+func disable(name string) *feature {
 	if features[name] == nil {
 		features[name] = &feature{name: name}
 	}
@@ -26,7 +32,10 @@ func disabled(name string) *feature {
 	return features[name]
 }
 
-func enabled(name string) *feature {
+// Prevent lint complaining about unused function
+//
+//nolint:unparam
+func enable(name string) *feature {
 	if features[name] == nil {
 		features[name] = &feature{name: name}
 	}
@@ -40,13 +49,13 @@ func (f *feature) Enabled() bool {
 	if f == nil {
 		return false
 	}
-	if on, err := strconv.ParseBool(os.Getenv(envir.DevboxFeaturePrefix + f.name)); err == nil {
+	if on, err := strconv.ParseBool(os.Getenv(envNamePrefix + f.name)); err == nil {
 		status := "enabled"
 		if !on {
 			status = "disabled"
 		}
 		if !logMap[f.name] {
-			debug.Log("Feature %q %s via environment variable.", f.name, status)
+			slog.Debug("Feature %q %s via environment variable.", f.name, status)
 			logMap[f.name] = true
 		}
 		return on
@@ -54,8 +63,15 @@ func (f *feature) Enabled() bool {
 	return f.enabled
 }
 
-func (f *feature) Disabled() bool {
-	return !f.Enabled()
+func (f *feature) EnableOnDev() *feature {
+	if build.IsDev {
+		f.enabled = true
+	}
+	return f
+}
+
+func (f *feature) EnableForTest(t *testing.T) {
+	t.Setenv(envNamePrefix+f.name, "1")
 }
 
 // All returns a map of all known features flags and whether they're enabled.

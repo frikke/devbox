@@ -1,9 +1,9 @@
 # devbox generate
 
-Top level command for generating Devcontainer and Dockerfiles for your Devbox Project. 
+Top level command for generating Devcontainers,  Dockerfiles, and other useful files for your Devbox Project. 
 
 ```bash
-devbox generate <devcontainer|dockerfile> [flags]
+devbox generate <devcontainer|dockerfile|direnv> [flags]
 ```
 
 ## Options
@@ -18,8 +18,9 @@ devbox generate <devcontainer|dockerfile> [flags]
 ## Subcommands
 
 * [devbox generate devcontainer](devbox_generate_devcontainer.md)	 - Generate Dockerfile and devcontainer.json files under .devcontainer/ directory
-* [devbox generate dockerfile](devbox_generate_dockerfile.md)	 - Generate a Dockerfile that replicates devbox shell
 * [devbox generate direnv](devbox_generate_direnv.md)  - Generate a .envrc file to use with direnv
+* [devbox generate dockerfile](devbox_generate_dockerfile.md)	 - Generate a Dockerfile that replicates devbox shell
+* [devbox generate readme](devbox_generate_readme.md)	 -  Generate markdown readme file for your project
 
 ## SEE ALSO
 

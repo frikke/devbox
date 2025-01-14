@@ -5,9 +5,9 @@ title: LEPP (Linux, Nginx, PHP, Postgres)
 
 An example Devbox shell for NGINX, Postgres, and PHP. This example uses Devbox Plugins for all 3 packages to simplify configuration
 
-[Example Repo](https://github.com/jetpack-io/devbox/tree/main/examples/stacks/lepp-stack)
+[Example Repo](https://github.com/jetify-com/devbox/tree/main/examples/stacks/lepp-stack)
 
-[![Open In Devbox.sh](https://jetpack.io/img/devbox/open-in-devbox.svg)](https://devbox.sh/new?template=lepp-stack)
+[![Open In Devspace](../../../static/img/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/lepp-stack)
 
 ## How to Run
 

@@ -1,6 +1,8 @@
 # Elixir
 
-Basic Elixir project using Mix in Devbox. 
+Basic Elixir project using Mix in Devbox.
+
+[![Open In Devspace](https://www.jetify.com/img/devbox/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/elixir)
 
 ## Configuration
 
@@ -27,5 +29,4 @@ end
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/elixir_hello>.
-
+be found at `https://hexdocs.pm/elixir_hello`.

@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package cmdutil
@@ -15,7 +15,7 @@ func Exists(command string) bool {
 
 // GetPathOrDefault gets the path for the given command.
 // If it's not found, it will return the given value instead.
-func GetPathOrDefault(command string, def string) string {
+func GetPathOrDefault(command, def string) string {
 	path, err := exec.LookPath(command)
 	if err != nil {
 		path = def

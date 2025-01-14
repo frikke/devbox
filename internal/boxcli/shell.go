@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package boxcli
@@ -9,19 +9,29 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"go.jetpack.io/devbox"
 	"go.jetpack.io/devbox/internal/boxcli/usererr"
+	"go.jetpack.io/devbox/internal/devbox"
+	"go.jetpack.io/devbox/internal/devbox/devopt"
 	"go.jetpack.io/devbox/internal/envir"
-	"go.jetpack.io/devbox/internal/impl/devopt"
+	"go.jetpack.io/devbox/internal/ux"
 )
 
 type shellCmdFlags struct {
-	config   configFlags
-	printEnv bool
-	pure     bool
+	envFlag
+	config       configFlags
+	omitNixEnv   bool
+	printEnv     bool
+	pure         bool
+	recomputeEnv bool
 }
 
-func shellCmd() *cobra.Command {
+// shellFlagDefaults are the flag default values that differ
+// from the `devbox` command versus `devbox global` command.
+type shellFlagDefaults struct {
+	omitNixEnv bool
+}
+
+func shellCmd(defaults shellFlagDefaults) *cobra.Command {
 	flags := shellCmdFlags{}
 	command := &cobra.Command{
 		Use:   "shell",
@@ -39,18 +49,32 @@ func shellCmd() *cobra.Command {
 	command.Flags().BoolVar(
 		&flags.printEnv, "print-env", false, "print script to setup shell environment")
 	command.Flags().BoolVar(
-		&flags.pure, "pure", false, "If this flag is specified, devbox creates an isolated shell inheriting almost no variables from the current environment. A few variables, in particular HOME, USER and DISPLAY, are retained.")
+		&flags.pure, "pure", false, "if this flag is specified, devbox creates an isolated shell inheriting almost no variables from the current environment. A few variables, in particular HOME, USER and DISPLAY, are retained.")
+	command.Flags().BoolVar(
+		&flags.omitNixEnv, "omit-nix-env", defaults.omitNixEnv,
+		"shell environment will omit the env-vars from print-dev-env",
+	)
+	_ = command.Flags().MarkHidden("omit-nix-env")
+	command.Flags().BoolVar(&flags.recomputeEnv, "recompute", true, "recompute environment if needed")
 
 	flags.config.register(command)
+	flags.envFlag.register(command)
 	return command
 }
 
 func runShellCmd(cmd *cobra.Command, flags shellCmdFlags) error {
+	ctx := cmd.Context()
+	env, err := flags.Env(flags.config.path)
+	if err != nil {
+		return err
+	}
+
 	// Check the directory exists.
 	box, err := devbox.Open(&devopt.Opts{
-		Dir:    flags.config.path,
-		Pure:   flags.pure,
-		Writer: cmd.ErrOrStderr(),
+		Dir:         flags.config.path,
+		Env:         env,
+		Environment: flags.config.environment,
+		Stderr:      cmd.ErrOrStderr(),
 	})
 	if err != nil {
 		return errors.WithStack(err)
@@ -59,7 +83,7 @@ func runShellCmd(cmd *cobra.Command, flags shellCmdFlags) error {
 	if flags.printEnv {
 		// false for includeHooks is because init hooks is not compatible with .envrc files generated
 		// by versions older than 0.4.6
-		script, err := box.PrintEnv(cmd.Context(), false /*includeHooks*/)
+		script, err := box.EnvExports(cmd.Context(), devopt.EnvExportsOpts{})
 		if err != nil {
 			return err
 		}
@@ -72,7 +96,23 @@ func runShellCmd(cmd *cobra.Command, flags shellCmdFlags) error {
 		return shellInceptionErrorMsg("devbox shell")
 	}
 
-	return box.Shell(cmd.Context())
+	return box.Shell(ctx, devopt.EnvOptions{
+		Hooks: devopt.LifecycleHooks{
+			OnStaleState: func() {
+				if !flags.recomputeEnv {
+					ux.FHidableWarning(
+						ctx,
+						cmd.ErrOrStderr(),
+						devbox.StateOutOfDateMessage,
+						"with --recompute=true",
+					)
+				}
+			},
+		},
+		OmitNixEnv:    flags.omitNixEnv,
+		Pure:          flags.pure,
+		SkipRecompute: !flags.recomputeEnv,
+	})
 }
 
 func shellInceptionErrorMsg(cmdPath string) error {

@@ -1,98 +1,121 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package searcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"runtime"
 
-	"go.jetpack.io/devbox/internal/boxcli/usererr"
-	"go.jetpack.io/devbox/internal/devpkg"
+	"github.com/pkg/errors"
+	"go.jetpack.io/devbox/internal/build"
 	"go.jetpack.io/devbox/internal/envir"
-	"go.jetpack.io/devbox/internal/lock"
-	"go.jetpack.io/devbox/internal/nix"
+	"go.jetpack.io/devbox/internal/redact"
 )
 
 const searchAPIEndpoint = "https://search.devbox.sh"
 
-func searchHost() string {
-	return envir.GetValueOrDefault(envir.DevboxSearchHost, searchAPIEndpoint)
-}
+var ErrNotFound = errors.New("Not found")
 
 type client struct {
-	endpoint string
+	host string
 }
-
-var cachedClient *client
 
 func Client() *client {
-	if cachedClient == nil {
-		endpoint, _ := url.JoinPath(searchHost(), "search")
-		// TODO: how to handle error
-		cachedClient = &client{
-			endpoint: endpoint,
-		}
+	return &client{
+		host: envir.GetValueOrDefault(envir.DevboxSearchHost, searchAPIEndpoint),
 	}
-	return cachedClient
 }
 
-func (c *client) Search(query string, options ...func() string) (*SearchResult, error) {
+func (c *client) Search(query string) (*SearchResults, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query should not be empty")
 	}
 
-	searchURL := c.endpoint + "?q=" + url.QueryEscape(query)
-
-	for _, op := range options {
-		searchURL += op()
+	endpoint, err := url.JoinPath(c.host, "v1/search")
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
+	searchURL := endpoint + "?q=" + url.QueryEscape(query)
 
-	return execSearch(searchURL)
+	return execGet[SearchResults](context.TODO(), searchURL)
 }
 
-func WithVersion(version string) func() string {
-	return func() string {
-		return "&v=" + url.QueryEscape(version)
+// Resolve calls the /resolve endpoint of the search service. This returns
+// the latest version of the package that matches the version constraint.
+func (c *client) Resolve(name, version string) (*PackageVersion, error) {
+	if name == "" || version == "" {
+		return nil, fmt.Errorf("name and version should not be empty")
 	}
+
+	endpoint, err := url.JoinPath(c.host, "v1/resolve")
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	searchURL := endpoint +
+		"?name=" + url.QueryEscape(name) +
+		"&version=" + url.QueryEscape(version)
+
+	return execGet[PackageVersion](context.TODO(), searchURL)
 }
 
-func (c *client) Resolve(pkg string) (*lock.Package, error) {
-	name, version, _ := devpkg.ParseVersionedPackage(pkg)
+// Resolve calls the /resolve endpoint of the search service. This returns
+// the latest version of the package that matches the version constraint.
+func (c *client) ResolveV2(ctx context.Context, name, version string) (*ResolveResponse, error) {
+	if name == "" {
+		return nil, redact.Errorf("name is empty")
+	}
 	if version == "" {
-		return nil, usererr.New("No version specified for %q.", name)
+		return nil, redact.Errorf("version is empty")
 	}
-	result, err := c.Search(name, WithVersion(version))
+
+	endpoint, err := url.JoinPath(c.host, "v2/resolve")
 	if err != nil {
-		return nil, err
+		return nil, redact.Errorf("invalid search endpoint host %q: %w", redact.Safe(c.host), redact.Safe(err))
 	}
-	if len(result.Results) == 0 {
-		return nil, nix.ErrPackageNotFound
-	}
-	return &lock.Package{
-		LastModified: result.Results[0].Packages[0].Date,
-		Resolved: fmt.Sprintf(
-			"github:NixOS/nixpkgs/%s#%s",
-			result.Results[0].Packages[0].NixpkgCommit,
-			result.Results[0].Packages[0].AttributePath,
-		),
-		Version: result.Results[0].Packages[0].Version,
-	}, nil
+	searchURL := endpoint +
+		"?name=" + url.QueryEscape(name) +
+		"&version=" + url.QueryEscape(version)
+
+	return execGet[ResolveResponse](ctx, searchURL)
 }
 
-func execSearch(url string) (*SearchResult, error) {
-	response, err := http.Get(url)
+var userAgent = fmt.Sprintf("Devbox/%s (%s; %s)", build.Version, runtime.GOOS, runtime.GOARCH)
+
+func execGet[T any](ctx context.Context, url string) (*T, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, redact.Errorf("GET %s: %w", redact.Safe(url), redact.Safe(err))
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, redact.Errorf("GET %s: %w", redact.Safe(url), redact.Safe(err))
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, redact.Errorf("GET %s: read respoonse body: %w", redact.Safe(url), redact.Safe(err))
 	}
-	var result SearchResult
-	return &result, json.Unmarshal(data, &result)
+	if response.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
+	if response.StatusCode >= 400 {
+		return nil, redact.Errorf("GET %s: unexpected status code %s: %s",
+			redact.Safe(url),
+			redact.Safe(response.Status),
+			redact.Safe(data),
+		)
+	}
+	var result T
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, redact.Errorf("GET %s: unmarshal response JSON: %w", redact.Safe(url), redact.Safe(err))
+	}
+	return &result, nil
 }

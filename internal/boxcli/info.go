@@ -1,14 +1,16 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package boxcli
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"go.jetpack.io/devbox"
-	"go.jetpack.io/devbox/internal/impl/devopt"
+	"go.jetpack.io/devbox/internal/devbox"
+	"go.jetpack.io/devbox/internal/devbox/devopt"
 )
 
 type infoCmdFlags struct {
@@ -35,12 +37,18 @@ func infoCmd() *cobra.Command {
 
 func infoCmdFunc(cmd *cobra.Command, pkg string, flags infoCmdFlags) error {
 	box, err := devbox.Open(&devopt.Opts{
-		Dir:    flags.config.path,
-		Writer: cmd.OutOrStdout(),
+		Dir:         flags.config.path,
+		Environment: flags.config.environment,
+		Stderr:      cmd.ErrOrStderr(),
 	})
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	return box.Info(cmd.Context(), pkg, flags.markdown)
+	info, err := box.Info(cmd.Context(), pkg, flags.markdown)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	fmt.Fprint(cmd.OutOrStdout(), info)
+	return nil
 }

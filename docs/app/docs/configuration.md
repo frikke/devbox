@@ -7,24 +7,72 @@ Your devbox configuration is stored in a `devbox.json` file, located in your pro
 
 ```json
 {
-    "packages": [],
+    "packages": [] | {},
     "env": {},
     "shell": {
         "init_hook": "...",
         "scripts": {}
     },
-    "include": [],
-    "nixpkgs": {
-        "commit": "..."
-    }
+    "include": []
 }
 ```
 
 ### Packages
 
-This is a list of Nix packages that should be installed in your Devbox shell and containers. These packages will only be installed and available within your shell, and will have precedence over any packages installed in your local machine. You can search for Nix packages using [Nix Package Search](https://search.nixos.org/packages).
+This is a list or map of Nix packages that should be installed in your Devbox shell and containers. These packages will only be installed and available within your shell, and will have precedence over any packages installed in your local machine. You can search for Nix packages using [Nix Package Search](https://search.nixos.org/packages).
 
-You can add packages to your devbox.json using `devbox add <package_name>`, and remove them using `devbox rm <package_name>`
+You can add packages to your devbox.json using `devbox add <package_name>`, and remove them using `devbox rm <package_name>`.
+
+Packages can be structured as a list of package names (`<packages>@<version>`) or [flake references](#adding-packages-from-flakes):
+
+```json
+{
+    "packages": [
+        "go@latest",
+        "golangci-lint@latest"
+    ]
+}
+```
+
+If you need to provide more options to your packages (such as limiting which platforms will install the package), you can structure packages as a map, where each package follows the schema below:
+
+```js
+{
+    "packages": {
+        // If only a version is specified, you can abbreviate the maps as "package_name": "version"
+        "package_name": string,
+        "package_name": {
+            // Version of the package to install. Defaults to "latest"
+            "version": string,
+            // Whether native library patching is enabled for this package. This defaults to `auto`, but can be overridden to `always` or `never` for individual packages.
+            "patch": ["auto" | "always" | "never"],
+            // List of platforms to install the package on. Defaults to all platforms
+            "platforms": [string],
+            // List of platforms to exclude this package from. Defaults to no excluded platforms
+            "excluded_platforms": [string],
+            // Whether to disable a built-in plugin, if one exists for this package. Defaults to false
+            "disable_plugin": boolean
+        }
+    }
+}
+```
+
+For example:
+
+```json
+{
+    "packages": {
+        "go" : "latest",
+        "golangci-lint": "latest",
+        "glibcLocales": {
+            "version": "latest",
+            "platforms": ["x86_64-linux, aarch64-linux"]
+        }
+    }
+}
+```
+
+Note that `devbox add` will automatically format `packages` based on the options and packages that you provide.
 
 #### Pinning a Specific Version of a Package
 
@@ -65,6 +113,55 @@ You can add packages from flakes by adding a reference to the  flake in the `pac
 
 To learn more about using flakes, see the [Using Flakes](guides/using_flakes.md) guide.
 
+#### Adding Platform Specific Packages
+
+You can choose to include or exclude your packages on specific platforms by adding a `platforms` or `excluded_platforms` field to your package definition. This is useful if you need to install packages or libraries that are only available on specific platforms (such as `busybox` on Linux, or `utm` on macOS):
+
+```json
+{
+    "packages": {
+        // Only install busybox on linux
+        "busybox": {
+            "version": "latest",
+            "platforms": ["x86_64-linux", "aarch64-linux"]
+        },
+        // Exclude UTM on Linux
+        "utm": {
+            "version": "latest",
+            "excluded_platforms": ["x86_64-linux", "aarch64-linux"]
+        }
+    }
+}
+```
+
+Note that a package can only specify one of `platforms` or `excluded_platforms`.
+
+Valid Platforms include:
+
+* `aarch64-darwin`
+* `aarch64-linux`
+* `x86_64-darwin`
+* `x86_64-linux`
+
+The platforms below are also supported, but require you to build packages from source:
+
+* `i686-linux`
+* `armv7l-linux`
+
+#### Disabling Built-in Plugins
+
+Some packages include builtin plugins or services that are automatically started when the package is installed. You can disable these plugins using `devbox add <package> --disable-plugin`, or by setting the `disable_plugin` field to `true` in your package definition:
+
+```json
+{
+    "packages": {
+        "glibcLocales": {
+            "version": "latest",
+            "disable_plugin": true
+        }
+    }
+}
+```
 
 ### Env
 
@@ -83,9 +180,37 @@ For example, you could set variable `$FOO` to `bar` by adding the following to y
 Currently, you can only set values using string literals, `$PWD`, and `$PATH`. Any other values with environment variables will not be expanded when starting your shell.
 
 
+### Env From
+
+Env from takes a string for loading environment variables into your shells and scripts. Currently it supports loading from two sources: .env files, and Jetify Secrets.
+
+#### .env Files
+
+You can load environment variables from a `.env` file by adding the path to the file in the `env_from` field (the file must end with `.env`). This is useful for loading secrets or other sensitive information that you don't want to store in your `devbox.json`.
+
+```json
+{
+    "env_from": "path/to/.env"
+}
+```
+
+This will load the environment variables from the `.env` file into your shell when you run `devbox shell` or `devbox run`. Note that environment variables set in the `.env` file will be overridden if the same variable is set directly in your `devbox.json`
+
+#### Jetify Secrets
+
+You can securely load secrets from Jetify Secrets by running `devbox secrets init` and creating a project in Jetify Cloud. This will add the `jetify-cloud` field to `env_from` in your project.
+
+```json
+{
+    "env_from": "jetify-cloud"
+}
+```
+
+Note that setting secrets securely with Jetify Secrets requires a Jetify Cloud account. For more information, see the [Jetify Secrets](/docs/cloud/secrets/) guide.
+
 ### Shell
 
-The Shell object defines init hooks and scripts that can be run with your shell. Right now two fields are supported: *init_hooks*, which run a set of commands every time you start a devbox shell, and *scripts*, which are commands that can be run using `devbox run`
+The Shell object defines init hooks and scripts that can be run with your shell. Right now two fields are supported: `init_hook`, which run a set of commands every time you start a devbox shell, and `scripts`, which are commands that can be run using `devbox run`
 
 #### Init Hook
 
@@ -147,27 +272,24 @@ To run multiple commands in a single script, you can pass them as an array:
 }
 ```
 
-### Includes
+### Include
 
-Includes can be used to explicitly add extra configuration or plugins to your Devbox project. Currently this only supports adding our [built-in plugins](guides/plugins.md) to your project.
+Includes can be used to explicitly add extra configuration from [plugins](./guides/plugins.md) to your Devbox project. Plugins are parsed and merged in the order they are listed.
 
-You should use this section to activate plugins when you install a package from a [Flake](guides/using_flakes.md) that uses a plugin. To ensure that a plugin is activated for your project, add it to the `includes` section of your `devbox.json`. For example, to explicitly activate the PHP plugin, you can add the following to your `devbox.json`:
-
+Note that in the event of a conflict, plugins near the end of the list will override plugins at the beginning of the list. Likewise, if a setting in your project config conflicts with a plugin (e.g., your `devbox.json` has a script with the same name as a plugin script), your project config will take precedence.
 ```json
 {
-    "includes": [
+    "include": [
+        // Include a plugin from a Github Repo. The repo must have a plugin.json in it's root,
+        // or in the directory specified by ?dir
+        "github:org/repo/ref?dir=<path-to-plugin>"
+        // Include a local plugin. The path must point to a plugin.json
+        "path:path/to/plugin.json"
+        // Force activate a builtin plugin
         "plugin:php-config"
     ]
 }
 ```
-
-### Nixpkgs
-
-The Nixpkg object is used to optionally configure which version of the Nixpkgs repository you want Devbox to use as the default for installing packages. It currently takes a single field, `commit`, which takes a commit hash for the specific revision of Nixpkgs you want to use.
-
-If a Nixpkg commit is not set, Devbox will automatically add a default commit hash to your `devbox.json`. To upgrade your packages to the latest available versions in the future, you can replace the default hash with the latest nixpkgs-unstable hash from https://status.nixos.org.
-
-To learn more, consult our guide on [setting the Nixpkg commit hash](guides/pinning_packages.md).
 
 ### Example: A Rust Devbox
 
@@ -176,23 +298,24 @@ An example of a devbox configuration for a Rust project called `hello_world` mig
 ```json
 {
     "packages": [
-        "rustc",
-        "cargo",
-        "libiconv"
+        "rustup@latest",
+        "libiconv@latest"
     ],
     "env": {
-        "RUST_BACKTRACE": "1"
+        "PROJECT_DIR": "$PWD"
     },
     "shell": {
         "init_hook": [
-            "source conf/set-environment.sh",
+            ". conf/set-env.sh",
             "rustup default stable",
             "cargo fetch"
         ],
         "scripts": {
-            "test": "cargo test -- --show-output",
-            "start" : "cargo run",
-            "build-docs": "cargo doc"
+            "build-docs": "cargo doc",
+            "start": "cargo run",
+            "run_test": [
+                "cargo test -- --show-output"
+            ]
         }
     }
 }

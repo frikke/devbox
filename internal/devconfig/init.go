@@ -1,38 +1,35 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package devconfig
 
 import (
-	"fmt"
-	"io"
+	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/fatih/color"
-
-	"go.jetpack.io/devbox/internal/cuecfg"
-	"go.jetpack.io/devbox/internal/initrec"
+	"go.jetpack.io/devbox/internal/devconfig/configfile"
 )
 
-func Init(dir string, writer io.Writer) (created bool, err error) {
-	cfgPath := filepath.Join(dir, DefaultName)
-
-	config := DefaultConfig()
-
-	// package suggestion
-	pkgsToSuggest, err := initrec.Get(dir)
+func Init(dir string) (*Config, error) {
+	file, err := os.OpenFile(
+		filepath.Join(dir, configfile.DefaultName),
+		os.O_RDWR|os.O_CREATE|os.O_EXCL,
+		0o644,
+	)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	if len(pkgsToSuggest) > 0 {
-		s := fmt.Sprintf("devbox add %s", strings.Join(pkgsToSuggest, " "))
-		fmt.Fprintf(
-			writer,
-			"We detected extra packages you may need. To install them, run `%s`\n",
-			color.HiYellowString(s),
-		)
-	}
+	defer func() {
+		if err != nil {
+			os.Remove(file.Name())
+		}
+	}()
 
-	return cuecfg.InitFile(cfgPath, config)
+	newConfig := DefaultConfig()
+	_, err = file.Write(newConfig.Root.Bytes())
+	defer file.Close()
+	if err != nil {
+		return nil, err
+	}
+	return newConfig, nil
 }

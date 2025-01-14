@@ -4,9 +4,9 @@ title: LAPP (Linux, Apache, PHP, Postgres)
 
 This example shows how to build a simple application using Apache, PHP, and PostgreSQL. It uses Devbox Plugins for all 3 packages to simplify configuration
 
-[Example Repo](https://github.com/jetpack-io/devbox/tree/main/examples/stacks/lapp-stack)
+[Example Repo](https://github.com/jetify-com/devbox/tree/main/examples/stacks/lapp-stack)
 
-[![Open In Devbox.sh](https://jetpack.io/img/devbox/open-in-devbox.svg)](https://devbox.sh/new?template=lapp-stack)
+[![Open In Devspace](../../../static/img/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/lapp-stack)
 
 ## How to Run
 
@@ -21,7 +21,7 @@ This example shows how to build a simple application using Apache, PHP, and Post
 1. Add the packages using the command below. Installing the packages with `devbox add` will ensure that the plugins are activated:
 
 ```bash
-devbox add postgresql@14 php@8.1 php81Extensions.pgsql@latest apache@2.4
+devbox add postgresql@14 php php83Extensions.pgsql@latest apache@2.4
 ```
 
 1. Update `devbox.d/apache/httpd.conf` to point to the directory with your PHP files. You'll need to update the `DocumentRoot` and `Directory` directives.

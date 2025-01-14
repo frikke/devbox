@@ -1,11 +1,10 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package plugin
 
 import (
 	"go.jetpack.io/devbox/internal/lock"
-	"go.jetpack.io/devbox/internal/nix"
 )
 
 type Manager struct {
@@ -15,7 +14,7 @@ type Manager struct {
 }
 
 type devboxProject interface {
-	Packages() []string
+	AllPackageNamesIncludingRemovedTriggerPackages() []string
 	ProjectDir() string
 }
 
@@ -43,18 +42,4 @@ func (m *Manager) ApplyOptions(opts ...managerOption) {
 	for _, opt := range opts {
 		opt(m)
 	}
-}
-
-func (m *Manager) PluginPackages(inputs []*nix.Input) ([]*nix.Input, error) {
-	pkgs := []*nix.Input{}
-	for _, input := range inputs {
-		config, err := getConfigIfAny(input, m.ProjectDir())
-		if err != nil {
-			return nil, err
-		} else if config == nil {
-			continue
-		}
-		pkgs = append(pkgs, nix.InputsFromStrings(config.Packages, m.lockfile)...)
-	}
-	return pkgs, nil
 }

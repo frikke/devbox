@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package services
@@ -14,7 +14,7 @@ import (
 	"github.com/f1bonacc1/process-compose/src/types"
 )
 
-type processStates = types.ProcessStates
+type processStates = types.ProcessesState
 
 type Process struct {
 	Name     string
@@ -22,7 +22,7 @@ type Process struct {
 	ExitCode int
 }
 
-func StartServices(ctx context.Context, w io.Writer, serviceName string, projectDir string) error {
+func StartServices(ctx context.Context, w io.Writer, serviceName, projectDir string) error {
 	path := fmt.Sprintf("/process/start/%s", serviceName)
 
 	body, status, err := clientRequest(path, http.MethodPost, projectDir)
@@ -37,10 +37,9 @@ func StartServices(ctx context.Context, w io.Writer, serviceName string, project
 	default:
 		return fmt.Errorf("error starting service %s: %s", serviceName, body)
 	}
-
 }
 
-func StopServices(ctx context.Context, serviceName string, projectDir string, w io.Writer) error {
+func StopServices(ctx context.Context, serviceName, projectDir string, w io.Writer) error {
 	path := fmt.Sprintf("/process/stop/%s", serviceName)
 
 	body, status, err := clientRequest(path, http.MethodPatch, projectDir)
@@ -57,7 +56,7 @@ func StopServices(ctx context.Context, serviceName string, projectDir string, w 
 	}
 }
 
-func RestartServices(ctx context.Context, serviceName string, projectDir string, w io.Writer) error {
+func RestartServices(ctx context.Context, serviceName, projectDir string, w io.Writer) error {
 	path := fmt.Sprintf("/process/restart/%s", serviceName)
 
 	body, status, err := clientRequest(path, http.MethodPost, projectDir)
@@ -103,7 +102,7 @@ func ListServices(ctx context.Context, projectDir string, w io.Writer) ([]Proces
 	}
 }
 
-func clientRequest(path string, method string, projectDir string) (string, int, error) {
+func clientRequest(path, method, projectDir string) (string, int, error) {
 	port, err := GetProcessManagerPort(projectDir)
 	if err != nil {
 		err := fmt.Errorf("unable to connect to process-compose server: %s", err.Error())

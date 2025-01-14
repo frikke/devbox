@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package templates
@@ -19,6 +19,7 @@ var popularTemplates = []string{
 var templates = map[string]string{
 	"apache":          "examples/servers/apache/",
 	"argo":            "examples/cloud_development/argo-workflows/",
+	"bun":             "examples/development/bun/",
 	"caddy":           "examples/servers/caddy/",
 	"django":          "examples/stacks/django/",
 	"dotnet":          "examples/development/csharp/hello-world/",
@@ -33,18 +34,20 @@ var templates = map[string]string{
 	"jekyll":          "examples/stacks/jekyll/",
 	"jupyter":         "examples/data_science/jupyter/",
 	"lapp-stack":      "examples/stacks/lapp-stack/",
+	"laravel":         "examples/stacks/laravel/",
 	"lepp-stack":      "examples/stacks/lepp-stack/",
 	"llama":           "examples/data_science/llama/",
 	"maelstrom":       "examples/cloud_development/maelstrom/",
 	"minikube":        "examples/cloud_development/minikube/",
 	"mariadb":         "examples/databases/mariadb/",
+	"mysql":           "examples/databases/mysql/",
 	"nginx":           "examples/servers/nginx/",
 	"nim":             "examples/development/nim/spinnytest/",
 	"node-npm":        "examples/development/nodejs/nodejs-npm/",
 	"node-pnpm":       "examples/development/nodejs/nodejs-pnpm/",
 	"node-typescript": "examples/development/nodejs/nodejs-typescript/",
 	"node-yarn":       "examples/development/nodejs/nodejs-yarn/",
-	"php":             "examples/development/php/php8.1/",
+	"php":             "examples/development/php/latest/",
 	"postgres":        "examples/databases/postgres/",
 	"python-pip":      "examples/development/python/pip/",
 	"python-pipenv":   "examples/development/python/pipenv/",

@@ -4,9 +4,9 @@ title: Redis
 
 Redis can be configured automatically using Devbox's built in Redis plugin. This plugin will activate automatically when you install Redis using `devbox add redis`
 
-[**Example Repo**](https://github.com/jetpack-io/devbox/tree/main/examples/databases/redis)
+[**Example Repo**](https://github.com/jetify-com/devbox/tree/main/examples/databases/redis)
 
-[![Open In Devbox.sh](https://jetpack.io/img/devbox/open-in-devbox.svg)](https://devbox.sh/new?template=redis)
+[![Open In Devspace](../../../static/img/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/redis)
 
 ## Adding Redis to your shell
 
@@ -18,7 +18,7 @@ Redis can be configured automatically using Devbox's built in Redis plugin. This
     ],
 ```
 
-This will install the latest version of Redis. You can find other installable versions of Redis by running `devbox search redis`.
+This will install the latest version of Redis. You can find other installable versions of Redis by running `devbox search redis`. You can also view the available versions on [Nixhub](https://www.nixhub.io/packages/redis)
 
 ## Redis Plugin Details
 
@@ -34,8 +34,7 @@ Use `devbox services start|stop [service]` to interact with services
 
 The following helper files will be created in your project directory:
 
-* {PROJECT_DIR}/devbox.d/redis/redis.conf
-
+* \{PROJECT_DIR\}/devbox.d/redis/redis.conf
 
 ### Environment Variables
 
@@ -51,3 +50,18 @@ Running `devbox services start redis` will start redis as a daemon in the backgr
 You can manually start Redis in the foreground by running `redis-server $REDIS_CONF --port $REDIS_PORT`.
 
 Logs, pidfile, and data dumps are stored in `.devbox/virtenv/redis`. You can change this by modifying the `dir` directive in `devbox.d/redis/redis.conf`
+
+### Disabling the Redis Plugin
+
+You can disable the Redis plugin by running `devbox add redis --disable-plugin`, or by setting the `disable_plugin` field in your `devbox.json`:
+
+```json
+{
+    "packages": {
+        "redis": {
+            "version": "latest",
+            "disable_plugin": true
+        }
+    }
+}
+```

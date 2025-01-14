@@ -1,23 +1,23 @@
 ---
-title: Using Packages from Nix Flakes
+title: Installing Packages from Nix Flakes
 ---
 
-Devbox supports installing packages with [Nix Flakes](https://nixos.wiki/wiki/Flakes). While Nixpkgs is a great
+Devbox supports installing packages with [Nix Flakes](https://nixos.wiki/wiki/Flakes).
 
-Devbox currently provides two ways to use Flakes to install packages in your project: 
+Devbox currently provides two ways to use Flakes to install packages in your project:
 
 1. You can reference a Flake hosted in Github using the `github:` reference
 2. You can reference a local Flake using the `path:` reference
 
 ## What are Flakes?
 
-[Flakes](https://www.jetpack.io/blog/powered-by-flakes/) are a new feature in the Nix language that lets us package software and create development shells in a declarative, fully reproducible way. You can use Nix Flakes to define packages, apps, templates, and dev environments. 
+[Flakes](https://www.jetify.com/blog/powered-by-flakes/) are a new feature in the Nix language that lets you package software and create development shells in a declarative, fully reproducible way. You can use Nix Flakes to define packages, apps, templates, and dev environments.
 
 Flakes are defined as a directory with a `flake.nix` and a `flake.lock` file. You import flakes to your project using a flake reference, which describes where to find the Flake, and what version or revision to use
 
 ## Using a Flake from Github
 
-You can add a Flake hosted on Github using the following string in your packages list: 
+You can add a Flake hosted on Github using the following string in your packages list:
 
 ```json
 "packages": [
@@ -45,7 +45,7 @@ github:F1bonacc1/process-compose/v0.40.2
 
 You can also install a specific attribute or package from a Flake by adding a `#` and the attribute name to the end of the package string. If you don't specify an attribute, Devbox will use `default` or `defaultPackage`
 
-For example, if you want to use [Fenix](https://github.com/nix-community/fenix) to install a specific version of Nix, you can use the following string in your packages list. This example will install the `stable.toolchain` packages from the `fenix` package.
+For example, if you want to use [Fenix](https://github.com/nix-community/fenix) to install a specific version of Rust, you can use the following string in your packages list. This example will install the `stable.toolchain` packages from the `fenix` package.
 
 ```nix
 github:nix-community/fenix#stable.toolchain
@@ -65,6 +65,16 @@ For example, if you want to install the `hello` package from the `nixos-20.09` b
 github:NixOS/nixpkgs/nixos-20.09#hello
 ```
 
+## Installing Additional Outputs from a Flake
+
+Some packages provide additional outputs that are not installed by default. For example, the `libcap` package provides a `dev` output that contains development headers and libraries, or the `prometheus` package includes the `promtool` CLI in a `cli` output.
+
+You can install these additional outputs by adding a `^` and a comma-separated list of outputs to the end of your flake reference. For example, the following command will install the default (`out`) and `dev` outputs of the `libcap` package:
+
+```nix
+github:nixos/nixpkgs#libcap^out,dev
+```
+
 ## Using a Local Flake
 
 You can also use a local Flake using the `path` attribute in your package list. Using a local flake can be helpful if you want to install your custom packages with Nix, or if you need to modify packages before using them in your Devbox project
@@ -81,10 +91,26 @@ For example, if you have a local Flake in the `./my-flake` directory, you can us
 path:./my-flake#my-package
 ```
 
+## Caching Flakes with the Jetify Cache
+
+Because flakes are not automatically built and cached by Nix, you may experience slower build times when using flakes in your Devbox project. To speed up your builds, you can use the [Jetify Cache](/docs/cloud/cache/) to cache the binaries built by your flakes for future use.
+
+After setting up your cache directly, you can upload the flake by running:
+
+```bash
+devbox cache upload <flake-reference>
+```
+
+Alternatively, you can cache your entire project closure by running the following command from your project root:
+
+```bash
+devbox cache upload
+```
+
 ### Examples
 
 For more examples of using Nix Flakes with Devbox, check out the examples in our Devbox Repo:
 
-- [Using Nix Flakes from Github](https://github.com/jetpack-io/devbox/tree/main/examples/flakes/remote)
-- [Using a Local Flake](https://github.com/jetpack-io/devbox/tree/main/examples/flakes/php)
-- [Applying an Overlay with Nix Flakes](https://github.com/jetpack-io/devbox/tree/main/examples/flakes/overlay)
+- [Using Nix Flakes from Github](https://github.com/jetify-com/devbox/tree/main/examples/flakes/remote)
+- [Using a Local Flake](https://github.com/jetify-com/devbox/tree/main/examples/flakes/php)
+- [Applying an Overlay with Nix Flakes](https://github.com/jetify-com/devbox/tree/main/examples/flakes/overlay)

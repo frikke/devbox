@@ -1,12 +1,12 @@
 {
   "packages": [
-    "python310",
     "python310Packages.pip",
-    "stdenv.cc.cc.lib"
+    "stdenv.cc.cc.lib",
+    "python310@latest"
   ],
   "shell": {
     "init_hook": [
-      "source $VENV_DIR/bin/activate",
+      ". $VENV_DIR/bin/activate",
       "pip install -r requirements.txt"
     ]
   },

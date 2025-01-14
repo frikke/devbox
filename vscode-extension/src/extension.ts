@@ -77,9 +77,23 @@ export function activate(context: ExtensionContext) {
 		commands.executeCommand('setContext', 'devbox.configFileExists', true);
 	});
 
+	const devboxInstall = commands.registerCommand('devbox.install', async () => {
+		await runInTerminal('devbox install', true);
+	});
+
+	const devboxUpdate = commands.registerCommand('devbox.update', async () => {
+		await runInTerminal('devbox update', true);
+	});
+
+	const devboxSearch = commands.registerCommand('devbox.search', async () => {
+		const result = await window.showInputBox({ placeHolder: "Name or a subset of a name of a package to search" });
+		await runInTerminal(`devbox search ${result}`, true);
+	});
+
 	const setupDevcontainer = commands.registerCommand('devbox.setupDevContainer', async () => {
 		await runInTerminal('devbox generate devcontainer', true);
 	});
+
 	const generateDockerfile = commands.registerCommand('devbox.generateDockerfile', async () => {
 		await runInTerminal('devbox generate dockerfile', true);
 	});
@@ -92,6 +106,9 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(devboxAdd);
 	context.subscriptions.push(devboxRun);
 	context.subscriptions.push(devboxInit);
+	context.subscriptions.push(devboxInstall);
+	context.subscriptions.push(devboxSearch);
+	context.subscriptions.push(devboxUpdate);
 	context.subscriptions.push(devboxRemove);
 	context.subscriptions.push(devboxShell);
 	context.subscriptions.push(setupDevcontainer);
@@ -109,7 +126,6 @@ async function initialCheckDevboxJSON(context: ExtensionContext) {
 			// devbox.json exists setcontext for devbox commands to be available
 			commands.executeCommand('setContext', 'devbox.configFileExists', true);
 			context.workspaceState.update("configFileExists", true);
-
 		} catch (err) {
 			console.log(err);
 			// devbox.json does not exist
@@ -136,7 +152,6 @@ async function runInTerminal(cmd: string, showTerminal: boolean) {
 			'text': `${cmd}\r\n`
 		});
 	}
-
 }
 
 async function getDevboxScripts(): Promise<string[]> {
@@ -175,7 +190,6 @@ async function readDevboxJson(workspaceUri: Uri) {
 	const readStr = Buffer.from(readData).toString('utf8');
 	const devboxJsonData = JSON.parse(readStr);
 	return devboxJsonData;
-
 }
 
 // This method is called when your extension is deactivated

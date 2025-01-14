@@ -2,7 +2,7 @@
 
 This shell includes a basic `devbox.json` with a few useful packages installed, and an example init_hook and script
 
-[![Open In Devbox.sh](https://jetpack.io/img/devbox/open-in-devbox.svg)](https://devbox.sh/github.com/jetpack-io/devbox-examples?folder=tutorial)
+[![Open In Devspace](https://www.jetify.com/img/devbox/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/tutorial)
 
 ## Adding New Packages
 
@@ -22,7 +22,7 @@ You can add new scripts by editing the `devbox.json` file
 
 You can run scripts using `devbox run <script>`
 
-For example: you can replay this help text with 
+For example: you can replay this help text with:
 
 ```bash
 devbox run readme
@@ -30,6 +30,6 @@ devbox run readme
 
 ## Next Steps
 
-* Checkout our Docs at [https://jetpack.io/devbox/docs](https://jetpack.io/devbox/docs)
-* Try out an Example Project at [https://jetpack.io/devbox/docs/devbox-examples](https://jetpack.io/devbox/docs/devbox-examples)
-* Report Issues at [https://github.com/jetpack-io/devbox/issues/new/choose](https://github.com/jetpack-io/devbox/issues/new/choose)
+* Checkout our Docs at [https://www.jetify.com/devbox/docs](https://www.jetify.com/devbox/docs)
+* Try out an Example Project at [https://www.jetify.com/devbox/docs/devbox-examples](https://www.jetify.com/devbox/docs/devbox-examples)
+* Report Issues at [https://github.com/jetify-com/devbox/issues/new/choose](https://github.com/jetify-com/devbox/issues/new/choose)

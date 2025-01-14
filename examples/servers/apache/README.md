@@ -1,19 +1,52 @@
-## apache-httpd-2.4.54
+# Apache
 
-### apache NOTES:
-If you with to edit the config file, please copy it out of the .devbox directory.
+Apache can be automatically configured by Devbox via the built-in Apache Plugin. This plugin will activate automatically when you install Apache using `devbox add apache`.
 
-### Services:
+[**Example Repo**](https://github.com/jetify-com/devbox/tree/main/examples/servers/apache)
+
+[![Open In Devspace](https://www.jetify.com/img/devbox/open-in-devspace.svg)](https://auth.jetify.com/devspace/templates/apache)
+
+### Adding Apache to your Shell
+
+Run `devbox add apache`, or add the following to your `devbox.json`
+
+```json
+  "packages": [
+    "apache@latest"
+  ]
+```
+
+This will install the latest version of Apache. You can find other installable versions of Apache by running `devbox search apache`. You can also view the available versions on [Nixhub](https://www.nixhub.io/packages/apache)
+
+## Apache Plugin Details
+
+The Apache plugin will automatically create the following configuration when you install Apache with `devbox add`.
+
+### Services
+
 * apache
 
-Use `devbox services start|stop [service]` to interact with services
+Use `devbox services start|stop apache` to start and stop httpd in the background.
 
-### This configuration creates the following helper files:
-* .devbox/conf/apache/httpd.conf
+### Helper Files
 
-### This configuration sets the following environment variables:
-* HTTPD_CONFDIR=/Users/johnlago/src/devbox-examples/servers/apache/.devbox/conf/apache
-* HTTPD_PORT=8080
+The following helper files will be created in your project directory:
 
-To show this information, run `devbox info apacheHttpd`
+* {PROJECT_DIR}/devbox.d/apacheHttpd/httpd.conf
+* {PROJECT_DIR}/devbox.d/web/index.html
 
+Note that by default, Apache is configured with `./devbox.d/web` as the DocumentRoot. To change this, you should copy and modify the default `./devbox.d/apacheHttpd/httpd.conf`.
+
+### Environment Variables
+
+```bash
+HTTPD_ACCESS_LOG_FILE={PROJECT_DIR}/.devbox/virtenv/apacheHttpd/access.log
+HTTPD_ERROR_LOG_FILE={PROJECT_DIR}/.devbox/virtenv/apacheHttpd/error.log
+HTTPD_PORT=8080
+HTTPD_DEVBOX_CONFIG_DIR={PROJECT_DIR}
+HTTPD_CONFDIR={PROJECT_DIR}/devbox.d/apacheHttpd
+```
+
+### Notes
+
+We recommend copying your `httpd.conf` file to a new directory and updating HTTPD_CONFDIR if you decide to modify it.

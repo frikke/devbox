@@ -1,8 +1,13 @@
 {
     "name": "postgresql",
     "version": "0.0.2",
-    "match": "^postgresql(_[0-9]+)?$",
-    "readme": "To initialize the database run `initdb`.",
+    "description": "To initialize the database run `initdb`.",
+    "packages": {
+        "glibcLocales": {
+            "version": "latest",
+            "platforms": ["x86_64-linux", "aarch64-linux"]
+        }
+    },
     "env": {
         "PGDATA": "{{ .Virtenv }}/data",
         "PGHOST": "{{ .Virtenv }}"

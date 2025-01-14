@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package templates
@@ -6,25 +6,35 @@ package templates
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 
 	"go.jetpack.io/devbox/internal/boxcli/usererr"
+	"go.jetpack.io/devbox/internal/build"
 )
 
-func Init(w io.Writer, template, dir string) error {
-	if err := createDirAndEnsureEmpty(dir); err != nil {
-		return err
-	}
-
+func InitFromName(w io.Writer, template, target string) error {
 	templatePath, ok := templates[template]
 	if !ok {
-		return usererr.New("unknown template %q", template)
+		return usererr.New("unknown template name or format %q", template)
+	}
+	return InitFromRepo(w, "https://github.com/jetify-com/devbox", templatePath, target)
+}
+
+func InitFromRepo(w io.Writer, repo, subdir, target string) error {
+	if err := createDirAndEnsureEmpty(target); err != nil {
+		return err
+	}
+	parsedRepoURL, err := ParseRepoURL(repo)
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
 	tmp, err := os.MkdirTemp("", "devbox-template")
@@ -32,7 +42,10 @@ func Init(w io.Writer, template, dir string) error {
 		return errors.WithStack(err)
 	}
 	cmd := exec.Command(
-		"git", "clone", "https://github.com/jetpack-io/devbox.git", tmp,
+		"git", "clone", parsedRepoURL,
+		// Clone and checkout a specific ref
+		"-b", lo.Ternary(build.IsDev, "main", build.Version),
+		tmp,
 	)
 	fmt.Fprintf(w, "%s\n", cmd)
 	cmd.Stderr = os.Stderr
@@ -43,7 +56,7 @@ func Init(w io.Writer, template, dir string) error {
 
 	cmd = exec.Command(
 		"sh", "-c",
-		fmt.Sprintf("cp -r %s %s", filepath.Join(tmp, templatePath, "*"), dir),
+		fmt.Sprintf("cp -r %s %s", filepath.Join(tmp, subdir, "*"), target),
 	)
 	fmt.Fprintf(w, "%s\n", cmd)
 	cmd.Stderr = os.Stderr
@@ -67,7 +80,7 @@ func List(w io.Writer, showAll bool) {
 func createDirAndEnsureEmpty(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		if err = os.MkdirAll(dir, 0755); err != nil {
+		if err = os.MkdirAll(dir, 0o755); err != nil {
 			return errors.WithStack(err)
 		}
 	} else if err != nil {
@@ -79,4 +92,14 @@ func createDirAndEnsureEmpty(dir string) error {
 	}
 
 	return nil
+}
+
+func ParseRepoURL(repo string) (string, error) {
+	u, err := url.Parse(repo)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "", usererr.New("Invalid URL format for --repo %s", repo)
+	}
+	// this is to handle cases where user puts repo url with .git at the end
+	// like: https://github.com/jetify-com/devbox.git
+	return strings.TrimSuffix(repo, ".git"), nil
 }

@@ -1,5 +1,3 @@
-run:
-  go: "1.20"
 linters:
   disable-all: true
   enable:
@@ -40,8 +38,10 @@ linters-settings:
       - name: bare-return
       - name: bool-literal-in-expr
       - name: cognitive-complexity
+        exclude:
+          - "**_test.go"
         arguments:
-          - 30 # TODO: gradually reduce it
+          - 32 # TODO: gradually reduce it
       - name: datarace
       - name: duplicated-imports
       - name: early-return
@@ -70,6 +70,7 @@ linters-settings:
       - m map[string]int
       - n int
       - ns string
+      - ok bool
       - r *http.Request
       - r io.Reader
       - r *os.File
@@ -86,3 +87,6 @@ linters-settings:
   wrapcheck:
     ignorePackageGlobs:
       - go.jetpack.io/devbox/*
+  misspell:
+    ignore-words:
+      - substituters

@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package boxcli
@@ -33,6 +33,7 @@ func versionCmd() *cobra.Command {
 	command.Flags().BoolVarP(&flags.verbose, "verbose", "v", false, // value
 		"displays additional version information",
 	)
+
 	command.AddCommand(selfUpdateCmd())
 	return command
 }
@@ -52,16 +53,17 @@ func selfUpdateCmd() *cobra.Command {
 
 func versionCmdFunc(cmd *cobra.Command, _ []string, flags versionFlags) error {
 	w := cmd.OutOrStdout()
-	v := getVersionInfo()
+	info := getVersionInfo()
 	if flags.verbose {
-		fmt.Fprintf(w, "Version:     %v\n", v.Version)
-		fmt.Fprintf(w, "Platform:    %v\n", v.Platform)
-		fmt.Fprintf(w, "Commit:      %v\n", v.Commit)
-		fmt.Fprintf(w, "Commit Time: %v\n", v.CommitDate)
-		fmt.Fprintf(w, "Go Version:  %v\n", v.GoVersion)
-		fmt.Fprintf(w, "Launcher:    %v\n", v.LauncherVersion)
+		fmt.Fprintf(w, "Version:     %v\n", info.Version)
+		fmt.Fprintf(w, "Platform:    %v\n", info.Platform)
+		fmt.Fprintf(w, "Commit:      %v\n", info.Commit)
+		fmt.Fprintf(w, "Commit Time: %v\n", info.CommitDate)
+		fmt.Fprintf(w, "Go Version:  %v\n", info.GoVersion)
+		fmt.Fprintf(w, "Launcher:    %v\n", info.LauncherVersion)
+
 	} else {
-		fmt.Fprintf(w, "%v\n", v.Version)
+		fmt.Fprintf(w, "%v\n", info.Version)
 	}
 	return nil
 }

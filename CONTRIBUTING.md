@@ -14,12 +14,12 @@ The easiest way to develop Devbox is with Devbox!
 
 1. Install Devbox:
 
-       curl -fsSL https://get.jetpack.io/devbox | bash
+       curl -fsSL https://get.jetify.com/devbox | bash
 
 2. Clone this repository:
 
-       git clone https://github.com/jetpack-io/devbox.git go.jetpack.io/devbox
-       cd go.jetpack.io/devbox
+       git clone https://github.com/jetify-com/devbox.git go.jetify.com/devbox
+       cd go.jetify.com/devbox
 
 3. Build the Devbox CLI. If you don't have Nix installed, Devbox will automatically install it for you before building:
 
@@ -30,6 +30,7 @@ The easiest way to develop Devbox is with Devbox!
        dist/devbox shell
 
 Tip: you can also start VSCode from inside your Devbox shell with `devbox run code`.
+- If you are encountering an error similar to: `line 3: command 'code' not found`, this means you do not have the Visual Studio Code "Shell Command" installed. To do this, follow the official guide: https://code.visualstudio.com/docs/setup/mac. Please refer to the section under: "Launching from the command line".
 
 ### Setting up the Environment Without Devbox
 
@@ -45,8 +46,8 @@ If you are unable to install or use Devbox, you can manually replicate the envir
 
 3. Clone this repository and build Devbox:
 
-       git clone https://github.com/jetpack-io/devbox.git go.jetpack.io/devbox
-       cd go.jetpack.io/devbox
+       git clone https://github.com/jetify-com/devbox.git go.jetify.com/devbox
+       cd go.jetify.com/devbox
        go build ./cmd/devbox
        ./devbox run -- echo hello, world
 

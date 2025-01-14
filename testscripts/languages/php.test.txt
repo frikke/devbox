@@ -1,27 +1,20 @@
-exec devbox run -- php index.php
+exec devbox run php index.php
 stdout 'done\n'
 
-exec devbox rm php81Extensions.ds
-exec devbox run -- php index.php
+exec devbox rm php83Extensions.ds
+exec devbox run php index.php
 stdout 'ds extension is not enabled'
 
-exec devbox add php81Extensions.ds
-exec devbox run -- php index.php
+exec devbox add php83Extensions.ds
+exec devbox run php index.php
 stdout 'done\n'
 
 -- devbox.json --
 {
   "packages": [
-    "php81",
-    "php81Packages.composer",
-    "php81Extensions.ds"
-  ],
-  "shell": {
-    "init_hook": null
-  },
-  "nixpkgs": {
-    "commit": "f80ac848e3d6f0c12c52758c0f25c10c97ca3b62"
-  }
+    "php@latest",
+    "php83Extensions.ds@latest"
+  ]
 }
 
 -- index.php --

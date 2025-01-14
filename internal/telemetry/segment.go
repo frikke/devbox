@@ -1,38 +1,99 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package telemetry
 
 import (
-	"fmt"
+	"cmp"
 	"io"
 	"log"
 	"os"
-	"strconv"
-	"strings"
+	"path/filepath"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	segment "github.com/segmentio/analytics-go"
+	"go.jetpack.io/devbox/nix"
 
 	"go.jetpack.io/devbox/internal/build"
-	"go.jetpack.io/devbox/internal/cloud/openssh"
 	"go.jetpack.io/devbox/internal/envir"
 )
 
-// cmdStartTime records the time at the start of any devbox command invocation.
-var cmdStartTime time.Time
+var segmentClient segment.Client
 
-// Event contains common fields used in our segment events
-type Event struct {
-	AnonymousID string
-	AppName     string
-	AppVersion  string
-	Duration    time.Duration
-	CloudRegion string
-	OsName      string
-	UserID      string
+func initSegmentClient() bool {
+	if build.TelemetryKey == "" {
+		return false
+	}
+
+	var err error
+	segmentClient, err = segment.NewWithConfig(build.TelemetryKey, segment.Config{
+		Logger:  segment.StdLogger(log.New(io.Discard, "", 0)),
+		Verbose: false,
+	})
+	return err == nil
+}
+
+func newTrackMessage(name string, meta Metadata) *segment.Track {
+	nixVersion := cmp.Or(nix.Version(), "unknown")
+
+	dur := time.Since(procStartTime)
+	if !meta.EventStart.IsZero() {
+		dur = time.Since(meta.EventStart)
+	}
+	uid := userID()
+	track := &segment.Track{
+		MessageId: newEventID(),
+		Type:      "track",
+		// Only set anonymous ID if user ID is not set. Otherwise segment will
+		// drop the UserId.
+		AnonymousId: lo.Ternary(uid == "", deviceID, ""),
+		UserId:      uid,
+		Timestamp:   time.Now(),
+		Event:       name,
+		Context: &segment.Context{
+			Device: segment.DeviceInfo{
+				Id: deviceID,
+			},
+			App: segment.AppInfo{
+				Name:    appName,
+				Version: build.Version,
+			},
+			OS: segment.OSInfo{
+				Name: build.OS(),
+			},
+		},
+		Properties: segment.Properties{
+			"command":      meta.Command,
+			"command_args": meta.CommandFlags,
+			"duration":     dur.Milliseconds(),
+			"nix_version":  nixVersion,
+			"org_id":       orgID(),
+			"packages":     meta.Packages,
+			"shell":        os.Getenv(envir.Shell),
+			"shell_access": shellAccess(),
+		},
+	}
+
+	// Property keys match the API events (search "Devspace Created").
+	insertEnv := func(envKey, propKey string) {
+		v, ok := os.LookupEnv(envKey)
+		if ok {
+			track.Properties[propKey] = v
+		}
+	}
+	insertEnv("_JETIFY_SANDBOX_ID", "devspace")
+	insertEnv("_JETIFY_GH_REPO", "repo")
+	insertEnv("_JETIFY_GIT_REF", "ref")
+	insertEnv("_JETIFY_GIT_SUBDIR", "subdir")
+
+	return track
+}
+
+// bufferSegmentMessage buffers a Segment message to disk so that Report can
+// upload it later.
+func bufferSegmentMessage(id string, msg segment.Message) {
+	bufferEvent(filepath.Join(segmentBufferDir, id+".json"), msg)
 }
 
 type shellAccessKind string
@@ -42,118 +103,6 @@ const (
 	ssh     shellAccessKind = "ssh"
 	browser shellAccessKind = "browser"
 )
-
-// NewSegmentClient returns a client object to use for segment logging.
-// Callers are responsible for calling client.Close().
-func NewSegmentClient(telemetryKey string) segment.Client {
-	segmentClient, _ := segment.NewWithConfig(telemetryKey, segment.Config{
-		BatchSize: 1, /* no batching */
-		// Discard logs:
-		Logger:  segment.StdLogger(log.New(io.Discard, "" /* prefix */, 0)),
-		Verbose: false,
-	})
-
-	return segmentClient
-}
-
-// CommandStartTime records and returns the time at the start of the command invocation.
-// It must be called initially at the start of the cobra (or other framework) command
-// stack. Subsequent calls returns the time from the first invocation of this function.
-func CommandStartTime() time.Time {
-	if cmdStartTime.IsZero() {
-		cmdStartTime = time.Now()
-	}
-	return cmdStartTime
-}
-
-// LogShellDurationEvent logs the duration from start of the command
-// till the shell was ready to be interactive.
-func LogShellDurationEvent(eventName string, startTime string) error {
-	if !Enabled() {
-		return nil
-	}
-
-	start, err := timeFromUnixTimestamp(startTime)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	evt := Event{
-		AnonymousID: DeviceID,
-		AppName:     AppDevbox,
-		AppVersion:  build.Version,
-		CloudRegion: os.Getenv(envir.DevboxRegion),
-		Duration:    time.Since(start),
-		OsName:      build.OS(),
-		UserID:      UserIDFromGithubUsername(),
-	}
-
-	segmentClient := NewSegmentClient(build.TelemetryKey)
-	defer func() {
-		_ = segmentClient.Close()
-	}()
-
-	// Ignore errors, telemetry is best effort
-	_ = segmentClient.Enqueue(segment.Track{
-		AnonymousId: evt.AnonymousID,
-		// Event name. We trim the prefix from shell-interactive/shell-ready to avoid redundancy.
-		Event: fmt.Sprintf("[%s] Shell Event: %s", evt.AppName, strings.TrimPrefix(eventName, "shell-")),
-		Context: &segment.Context{
-			Device: segment.DeviceInfo{
-				Id: evt.AnonymousID,
-			},
-			App: segment.AppInfo{
-				Name:    evt.AppName,
-				Version: evt.AppVersion,
-			},
-			OS: segment.OSInfo{
-				Name: evt.OsName,
-			},
-		},
-		Properties: segment.NewProperties().
-			Set("shell_access", shellAccess()).
-			Set("duration", evt.Duration.Milliseconds()),
-		UserId: evt.UserID,
-	})
-	return nil
-}
-
-// UserIDFromGithubUsername returns a uuid string if the user has authenticated with github.
-// If not authenticated, or there's an error, then an empty string is returned, which segment
-// would treat as logged-out or anonymous user.
-func UserIDFromGithubUsername() string {
-	username, err := openssh.GithubUsernameFromLocalFile()
-	if err != nil || username == "" {
-		return ""
-	}
-
-	const salt = "d6134cd5-347d-4b7c-a2d0-295c0f677948"
-	const githubPrefix = "github:"
-
-	// We use a version 5 uuid.
-	// A good comparison of types of uuids is at: https://www.uuidtools.com/uuid-versions-explained
-	return uuid.NewSHA1(uuid.MustParse(salt), []byte(githubPrefix+username)).String()
-}
-
-// timeFromUnixTimestamp is a helper utility that converts the timestamp string
-// into a golang time.Time struct.
-//
-// See UnixTimestampFromTime for the inverse function.
-func timeFromUnixTimestamp(timestamp string) (time.Time, error) {
-	i, err := strconv.ParseInt(timestamp, 10, 64)
-	if err != nil {
-		return time.Time{}, errors.WithStack(err)
-	}
-	return time.Unix(i, 0), nil
-}
-
-// UnixTimestampFromTime is a helper utility that converts a golang time.Time struct
-// to a timestamp string.
-//
-// See timeFromUnixTimestamp for the inverse function.
-func UnixTimestampFromTime(t time.Time) string {
-	return strconv.FormatInt(t.Unix(), 10)
-}
 
 func shellAccess() shellAccessKind {
 	// Check if running in devbox cloud

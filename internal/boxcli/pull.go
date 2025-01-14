@@ -1,4 +1,4 @@
-// Copyright 2023 Jetpack Technologies Inc and contributors. All rights reserved.
+// Copyright 2024 Jetify Inc. and contributors. All rights reserved.
 // Use of this source code is governed by the license in the LICENSE file.
 
 package boxcli
@@ -12,8 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"go.jetpack.io/devbox"
-	"go.jetpack.io/devbox/internal/impl/devopt"
+	"go.jetpack.io/devbox/internal/boxcli/usererr"
+	"go.jetpack.io/devbox/internal/devbox"
+	"go.jetpack.io/devbox/internal/devbox/devopt"
+	"go.jetpack.io/devbox/internal/devbox/providers/identity"
+	"go.jetpack.io/devbox/internal/goutil"
+	"go.jetpack.io/devbox/internal/pullbox/s3"
+	"go.jetpack.io/pkg/auth"
 )
 
 type pullCmdFlags struct {
@@ -27,11 +32,11 @@ func pullCmd() *cobra.Command {
 		Use:     "pull <file> | <url>",
 		Short:   "Pull a config from a file or URL",
 		Long:    "Pull a config from a file or URL. URLs must be prefixed with 'http://' or 'https://'.",
+		Args:    cobra.MaximumNArgs(1),
 		PreRunE: ensureNixInstalled,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return pullCmdFunc(cmd, args[0], &flags)
+			return pullCmdFunc(cmd, goutil.GetDefaulted(args, 0), &flags)
 		},
-		Args: cobra.ExactArgs(1),
 	}
 
 	cmd.Flags().BoolVarP(
@@ -46,8 +51,9 @@ func pullCmd() *cobra.Command {
 
 func pullCmdFunc(cmd *cobra.Command, url string, flags *pullCmdFlags) error {
 	box, err := devbox.Open(&devopt.Opts{
-		Dir:    flags.config.path,
-		Writer: cmd.ErrOrStderr(),
+		Dir:         flags.config.path,
+		Environment: flags.config.environment,
+		Stderr:      cmd.ErrOrStderr(),
 	})
 	if err != nil {
 		return errors.WithStack(err)
@@ -58,7 +64,23 @@ func pullCmdFunc(cmd *cobra.Command, url string, flags *pullCmdFlags) error {
 		return errors.WithStack(err)
 	}
 
-	err = box.Pull(cmd.Context(), flags.force, pullPath)
+	var creds devopt.Credentials
+	t, err := identity.GenSession(cmd.Context())
+	if err != nil && !errors.Is(err, auth.ErrNotLoggedIn) {
+		return errors.WithStack(err)
+	} else if t != nil && err == nil {
+		creds = devopt.Credentials{
+			IDToken: t.IDToken,
+			Email:   t.IDClaims().Email,
+			Sub:     t.IDClaims().Subject,
+		}
+	}
+
+	err = box.Pull(cmd.Context(), devopt.PullboxOpts{
+		URL:         pullPath,
+		Overwrite:   flags.force,
+		Credentials: creds,
+	})
 	if prompt := pullErrorPrompt(err); prompt != "" {
 		prompt := &survey.Confirm{Message: prompt}
 		if err = survey.AskOne(prompt, &flags.force); err != nil {
@@ -67,7 +89,16 @@ func pullCmdFunc(cmd *cobra.Command, url string, flags *pullCmdFlags) error {
 		if !flags.force {
 			return nil
 		}
-		err = box.Pull(cmd.Context(), flags.force, pullPath)
+		err = box.Pull(cmd.Context(), devopt.PullboxOpts{
+			URL:         pullPath,
+			Overwrite:   flags.force,
+			Credentials: creds,
+		})
+	}
+	if errors.Is(err, s3.ErrProfileNotFound) {
+		return usererr.New(
+			"Profile not found. Use `devbox global push` to create a new profile.",
+		)
 	}
 	if err != nil {
 		return err
@@ -75,7 +106,9 @@ func pullCmdFunc(cmd *cobra.Command, url string, flags *pullCmdFlags) error {
 
 	return installCmdFunc(
 		cmd,
-		runCmdFlags{config: configFlags{path: flags.config.path}},
+		installCmdFlags{
+			runCmdFlags: runCmdFlags{config: configFlags{pathFlag: pathFlag{path: flags.config.path}}},
+		},
 	)
 }
 
